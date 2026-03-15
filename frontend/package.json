@@ -2,7 +2,7 @@
   "name": "vaultdrop-frontend",
   "version": "1.0.0",
   "scripts": {
-    "build": "node -e \"const fs = require('fs'); if (!fs.existsSync('dist')) fs.mkdirSync('dist'); fs.copyFileSync('index.html', 'dist/index.html'); if (fs.existsSync('.env')) fs.copyFileSync('.env', 'dist/.env');\"",
+    "build": "node -e \"const fs = require('fs'); const backendUrl = process.env.BACKEND_API_URL || ''; if (!fs.existsSync('dist')) fs.mkdirSync('dist'); fs.copyFileSync('index.html', 'dist/index.html'); fs.writeFileSync('dist/config.json', JSON.stringify({ BACKEND_API_URL: backendUrl })); console.log('Build complete: config.json generated');\"",
     "start": "npx serve dist",
     "dev": "npx serve ."
   },

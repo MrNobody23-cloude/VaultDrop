@@ -233,31 +233,34 @@
 
         const loadConfig = async () => {
             try {
-                const response = await fetch('.env');
-                if (!response.ok) return;
-
-                const text = await response.text();
-                const lines = text.split('\n');
-                const env = {};
-
-                lines.forEach(line => {
-                    const parts = line.split('=');
-                    if (parts.length >= 2) {
-                        const key = parts[0].trim();
-                        const value = parts.slice(1).join('=').trim();
-                        env[key] = value;
-                    }
-                });
+                // Fetching config.json instead of .env because .env is often ignored by hosting providers
+                const response = await fetch('config.json');
+                if (!response.ok) {
+                    console.log("No config.json found, using default URL:", apiBase);
+                    return;
+                }
+                
+                const env = await response.json();
 
                 if (env.BACKEND_API_URL) {
                     apiBase = env.BACKEND_API_URL.replace(/\/$/, "");
-                    const wsProtocol = apiBase.startsWith("https") ? "wss" : "ws";
-                    const wsUrl = new URL(apiBase);
-                    wsBase = `${wsProtocol}://${wsUrl.host}/ws`;
-                    console.log(`Config loaded from .env: apiBase=${apiBase}, wsBase=${wsBase}`);
+                    
+                    // Derive WebSocket URL
+                    try {
+                        const url = new URL(apiBase);
+                        const wsProtocol = url.protocol === "https:" ? "wss" : "ws";
+                        wsBase = `${wsProtocol}://${url.host}/ws`;
+                    } catch (e) {
+                        // Fallback if URL is just a hostname
+                        const wsProtocol = apiBase.startsWith("https") ? "wss" : "ws";
+                        const host = apiBase.replace(/^https?:\/\//, "");
+                        wsBase = `${wsProtocol}://${host}/ws`;
+                    }
+                    
+                    console.log(`Config loaded: apiBase=${apiBase}, wsBase=${wsBase}`);
                 }
             } catch (err) {
-                console.warn("Failed to load .env, using defaults:", err);
+                console.warn("Failed to load config.json, using defaults:", err);
             }
         };
 
