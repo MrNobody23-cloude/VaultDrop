@@ -14,7 +14,8 @@ const fastify = Fastify({
 
 await fastify.register(cors, {
     origin: true,
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: true
 });
 
 await registerCheckoutRoutes(fastify);
