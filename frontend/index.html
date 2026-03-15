@@ -347,16 +347,42 @@
         };
 
         const connectWebSocket = () => {
+            console.log(`[WS] Attempting to connect to: ${wsBase}`);
             const ws = new WebSocket(wsBase);
+            
+            // Connection timeout detection
+            const timeout = setTimeout(() => {
+                if (ws.readyState !== 1) {
+                    console.error(`[WS] Connection to ${wsBase} timed out. Check CORS/Proxy settings.`);
+                    logLine("WS Connection Timed Out", "bad");
+                }
+            }, 5000);
+
             ws.onopen = () => {
+                clearTimeout(timeout);
                 el.socketState.textContent = "connected";
+                el.socketState.style.color = "var(--line)";
                 logLine("WebSocket connected");
+                console.log(`[WS] Connected successfully to ${wsBase}`);
             };
 
-            ws.onclose = () => {
+            ws.onclose = (event) => {
+                clearTimeout(timeout);
                 el.socketState.textContent = "disconnected";
-                logLine("WebSocket disconnected", "warn");
-                setTimeout(connectWebSocket, 800);
+                el.socketState.style.color = "var(--bad)";
+                
+                let reason = "Unknown";
+                if (event.code === 1006) reason = "Abnormal Closure (Check SSL/CORS)";
+                if (event.code === 1000) reason = "Normal Closure";
+                
+                logLine(`WebSocket disconnected: ${reason}`, "warn");
+                console.warn(`[WS] Disconnected (Code: ${event.code}, Reason: ${reason}). Retrying in 2s...`);
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error("[WS] Socket error details:", err);
+                logLine("WebSocket Error - See Console", "bad");
             };
 
             ws.onmessage = (event) => {

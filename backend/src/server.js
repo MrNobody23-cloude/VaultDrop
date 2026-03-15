@@ -7,7 +7,10 @@ import { startQueueDepthMonitor } from "./services/queue.js";
 import { getMetrics, metricsRegistry } from "./lib/metrics.js";
 import { attachRealtimeServer } from "./services/websocket.js";
 
-const fastify = Fastify({ logger: true });
+const fastify = Fastify({ 
+    logger: true,
+    trustProxy: true 
+});
 
 await fastify.register(cors, {
     origin: true,
