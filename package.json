@@ -1,0 +1,11 @@
+{
+  "name": "vaultdrop-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node -e \"const fs = require('fs'); if (!fs.existsSync('dist')) fs.mkdirSync('dist'); fs.copyFileSync('index.html', 'dist/index.html'); if (fs.existsSync('.env')) fs.copyFileSync('.env', 'dist/.env');\"",
+    "start": "npx serve dist"
+  },
+  "dependencies": {
+    "firebase": "^12.10.0"
+  }
+}
