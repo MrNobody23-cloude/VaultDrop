@@ -6,7 +6,7 @@ RUN npm install --omit=dev
 
 COPY backend/src ./src
 COPY backend/db ./db
-COPY redis /redis
+COPY redis ./redis
 
 EXPOSE 8080
 CMD ["npm", "run", "start"]
