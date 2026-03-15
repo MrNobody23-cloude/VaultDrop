@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VaultDrop Flash Sale Console</title>
+    <style>
+        :root {
+            --bg: #030706;
+            --panel: #07120f;
+            --line: #0dd46a;
+            --text: #9dffc9;
+            --warn: #ffd21a;
+            --bad: #ff4747;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Consolas", "SFMono-Regular", Menlo, Monaco, monospace;
+            background:
+                radial-gradient(circle at 20% -20%, #0f3827 0%, transparent 55%),
+                radial-gradient(circle at 80% 120%, #0f3a2a 0%, transparent 50%),
+                var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 18px;
+        }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0 0 18px;
+            color: #21ff89;
+            letter-spacing: 0.12em;
+            font-size: clamp(1.1rem, 1.8vw, 1.6rem);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+        }
+
+        .card {
+            border: 1px solid rgba(13, 212, 106, 0.65);
+            background: linear-gradient(180deg, rgba(5, 19, 14, 0.85), rgba(3, 9, 7, 0.92));
+            padding: 14px;
+            box-shadow: inset 0 0 0 1px rgba(33, 255, 137, 0.15);
+        }
+
+        .card h2 {
+            margin: 0 0 8px;
+            font-size: 0.95rem;
+            color: #29ff90;
+            letter-spacing: 0.08em;
+        }
+
+        .meta {
+            margin: 4px 0;
+            opacity: 0.9;
+        }
+
+        input,
+        button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 0;
+            border: 1px solid rgba(13, 212, 106, 0.65);
+            background: #020705;
+            color: var(--text);
+            font-family: inherit;
+        }
+
+        button {
+            cursor: pointer;
+            margin-top: 8px;
+            background: #0a1e16;
+            font-weight: 700;
+        }
+
+        button:hover {
+            background: #103024;
+        }
+
+        .pill {
+            display: inline-block;
+            border: 1px solid rgba(13, 212, 106, 0.75);
+            color: #2fff95;
+            padding: 2px 8px;
+            margin-right: 8px;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+        }
+
+        .lifecycle {
+            margin-top: 16px;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .step {
+            border: 1px solid rgba(13, 212, 106, 0.55);
+            padding: 8px;
+            min-height: 66px;
+            opacity: 0.45;
+            transition: opacity 180ms ease, transform 180ms ease;
+        }
+
+        .step.active {
+            opacity: 1;
+            transform: translateY(-2px);
+            border-color: #2bff94;
+        }
+
+        .step.reject {
+            border-color: var(--bad);
+            color: #ff8e8e;
+        }
+
+        #log {
+            max-height: 220px;
+            overflow: auto;
+            white-space: pre-wrap;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .warn {
+            color: var(--warn);
+        }
+
+        .bad {
+            color: var(--bad);
+        }
+
+        #adminPanel {
+            display: none;
+            margin-top: 14px;
+            border: 1px dashed var(--warn);
+            padding: 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Vault Drop</h1>
+
+        <div class="grid">
+            <section class="card">
+                <h2>CLIENT + EDGE</h2>
+                <div class="meta">Product: <strong>sku-vaultdrop</strong></div>
+                <div class="meta">Countdown: <span id="timer">90</span>s</div>
+                <div class="meta">Inventory: <span id="inventory">-</span></div>
+                <div class="meta">WebSocket: <span id="socketState">connecting</span></div>
+            </section>
+
+            <section class="card">
+                <h2>AUTH + SESSION</h2>
+                <div id="loginForm">
+                    <input id="userId" value="buyer-001" placeholder="Enter your name" />
+                    <button id="getToken">LOGIN / ISSUE JWT</button>
+                    <div class="meta" style="font-size: 0.8rem; margin-top: 5px;">(Enter 'admin' for privileges)</div>
+                </div>
+                <div id="userInfo" class="hidden">
+                    <div class="meta">User: <strong id="currentUserName">-</strong></div>
+                    <div class="meta">Role: <span id="currentUserRole">-</span></div>
+                    <button id="logoutBtn" style="background: #1e0a0a; border-color: #ff4747;">LOGOUT</button>
+                </div>
+                <div id="jwtState" class="hidden"></div>
+            </section>
+
+            <section class="card">
+                <h2>CHECKOUT CONTROL</h2>
+                <div class="pill">Rate limit: 5/min</div>
+                <div class="pill">Atomic gate</div>
+                <div class="pill">BullMQ queue</div>
+                <button id="buyBtn">BUY NOW</button>
+                <div id="status" class="meta">Awaiting login.</div>
+
+                <div id="adminPanel">
+                    <h2 style="color: var(--warn);">ADMIN CONTROLS</h2>
+                    <input id="restockQty" type="number" value="50" placeholder="Qty" />
+                    <button id="restockBtn" style="background: #302610; border-color: var(--warn);">RESTOCK + RESET
+                        TIMER</button>
+                </div>
+            </section>
+        </div>
+
+        <section class="card lifecycle">
+            <h2>REQUEST LIFECYCLE</h2>
+            <div class="steps">
+                <div id="s1" class="step">1. CDN + RATE LIMIT</div>
+                <div id="s2" class="step">2. AUTH VALIDATE</div>
+                <div id="s3" class="step">3. REDIS LUA GATE</div>
+                <div id="s4" class="step">4. BULLMQ QUEUE</div>
+                <div id="s5" class="step">5. ORDER + STRIPE PAY</div>
+                <div id="s6" class="step">6. WS BROADCAST</div>
+                <div id="reject" class="step reject">REJECTED CLEANLY (409 SOLD_OUT)</div>
+            </div>
+        </section>
+
+        <section class="card" style="margin-top: 14px">
+            <h2>EVENT LOG</h2>
+            <div id="log"></div>
+        </section>
+    </div>
+
+    <script>
+        const apiBase = `${location.protocol}//${location.hostname}:8080`;
+        const wsBase = `${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:8080/ws`;
+
+        const state = {
+            token: "",
+            countdown: 0,
+            role: "user",
+            userId: ""
+        };
+
+        const el = {
+            timer: document.getElementById("timer"),
+            inventory: document.getElementById("inventory"),
+            socketState: document.getElementById("socketState"),
+            userId: document.getElementById("userId"),
+            getToken: document.getElementById("getToken"),
+            jwtState: document.getElementById("jwtState"),
+            buyBtn: document.getElementById("buyBtn"),
+            status: document.getElementById("status"),
+            log: document.getElementById("log"),
+            loginForm: document.getElementById("loginForm"),
+            userInfo: document.getElementById("userInfo"),
+            currentUserName: document.getElementById("currentUserName"),
+            currentUserRole: document.getElementById("currentUserRole"),
+            logoutBtn: document.getElementById("logoutBtn"),
+            adminPanel: document.getElementById("adminPanel"),
+            restockQty: document.getElementById("restockQty"),
+            restockBtn: document.getElementById("restockBtn"),
+            steps: ["s1", "s2", "s3", "s4", "s5", "s6", "reject"].map((id) => document.getElementById(id))
+        };
+
+        const logLine = (text, klass = "") => {
+            const line = document.createElement("div");
+            line.className = klass;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            el.log.prepend(line);
+        };
+
+        const clearSteps = () => {
+            el.steps.forEach((node) => node.classList.remove("active"));
+        };
+
+        const activateStep = (id) => {
+            const node = document.getElementById(id);
+            if (node) {
+                node.classList.add("active");
+            }
+        };
+
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        const pullInventory = async () => {
+            const res = await fetch(`${apiBase}/api/inventory/sku-vaultdrop`);
+            if (!res.ok) {
+                throw new Error("inventory fetch failed");
+            }
+            const data = await res.json();
+            el.inventory.textContent = data.remaining;
+
+            if (data.saleExpiry) {
+                updateCountdownFromExpiry(data.saleExpiry);
+            }
+        };
+
+        const updateCountdownFromExpiry = (expiry) => {
+            const remaining = Math.max(0, Math.floor((expiry - Date.now()) / 1000));
+            state.countdown = remaining;
+            el.timer.textContent = String(state.countdown);
+            handleTimerVisuals();
+        };
+
+        const handleTimerVisuals = () => {
+            if (state.countdown <= 0) {
+                el.timer.classList.add("bad");
+                el.buyBtn.disabled = true;
+                el.buyBtn.textContent = "SALE ENDED";
+            } else {
+                el.timer.classList.remove("bad");
+                if (state.token && state.role !== 'admin') {
+                    el.buyBtn.disabled = false;
+                    el.buyBtn.textContent = "BUY NOW";
+                }
+            }
+        };
+
+        const connectWebSocket = () => {
+            const ws = new WebSocket(wsBase);
+            ws.onopen = () => {
+                el.socketState.textContent = "connected";
+                logLine("WebSocket connected");
+            };
+
+            ws.onclose = () => {
+                el.socketState.textContent = "disconnected";
+                logLine("WebSocket disconnected", "warn");
+                setTimeout(connectWebSocket, 800);
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                if (message.type === "inventory_update" || message.type === "sold_out") {
+                    el.inventory.textContent = message.payload.remaining;
+                    if (message.payload.saleExpiry) {
+                        updateCountdownFromExpiry(message.payload.saleExpiry);
+                    }
+                    activateStep("s6");
+                }
+
+                if (message.type === "order_completed") {
+                    activateStep("s6");
+                }
+
+                logLine(`WS ${message.type}: ${JSON.stringify(message.payload)}`);
+            };
+        };
+
+        const issueToken = async () => {
+            const userId = el.userId.value.trim() || "buyer-001";
+            const res = await fetch(`${apiBase}/api/auth/login`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ userId })
+            });
+
+            if (!res.ok) {
+                throw new Error("Login failed");
+            }
+
+            const data = await res.json();
+            state.token = data.token;
+            state.role = data.role;
+            state.userId = data.userId;
+
+            // UI Updates
+            el.loginForm.classList.add("hidden");
+            el.userInfo.classList.remove("hidden");
+            el.currentUserName.textContent = data.userId;
+            el.currentUserRole.textContent = data.role;
+
+            if (data.role === "admin") {
+                el.adminPanel.style.display = "block";
+                el.buyBtn.disabled = true;
+                el.buyBtn.textContent = "ADMIN MODE";
+                el.status.textContent = "Logged in as Admin. Inventory controls active.";
+            } else {
+                el.adminPanel.style.display = "none";
+                el.buyBtn.disabled = state.countdown <= 0;
+                el.buyBtn.textContent = state.countdown <= 0 ? "SALE ENDED" : "BUY NOW";
+                el.status.textContent = `Logged in as ${data.userId}. Ready to buy.`;
+            }
+
+            logLine(`Logged in: ${data.userId} (${data.role})`);
+        };
+
+        const restock = async () => {
+            const quantity = parseInt(el.restockQty.value) || 50;
+            const res = await fetch(`${apiBase}/api/admin/restock`, {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    "authorization": `Bearer ${state.token}`
+                },
+                body: JSON.stringify({ quantity })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Restock failed");
+            }
+
+            const data = await res.json();
+            logLine(`Admin updated inventory: Set to ${quantity}`);
+        };
+
+        const buyNow = async () => {
+            clearSteps();
+            activateStep("s1");
+            await wait(80);
+
+            if (!state.token) {
+                el.status.textContent = "Please login first.";
+                logLine("Checkout blocked: missing login", "warn");
+                return;
+            }
+
+            if (state.countdown <= 0) {
+                el.status.textContent = "Sale has ended.";
+                logLine("Checkout blocked: countdown finished", "warn");
+                return;
+            }
+
+            activateStep("s2");
+            await wait(80);
+            activateStep("s3");
+            await wait(80);
+
+            const idempotencyKey = `idem-${crypto.randomUUID()}`;
+
+            const res = await fetch(`${apiBase}/api/checkout`, {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    authorization: `Bearer ${state.token}`
+                },
+                body: JSON.stringify({
+                    productId: "sku-vaultdrop",
+                    quantity: 1,
+                    idempotencyKey
+                })
+            });
+
+            if (res.status === 409) {
+                activateStep("reject");
+                const data = await res.json();
+                el.status.textContent = `Rejected: ${data.error}`;
+                logLine(`Rejected cleanly: ${JSON.stringify(data)}`, "bad");
+                return;
+            }
+
+            if (!res.ok) {
+                el.status.textContent = `Error ${res.status}`;
+                logLine(`Checkout failed with ${res.status}`, "bad");
+                return;
+            }
+
+            activateStep("s4");
+            await wait(80);
+            activateStep("s5");
+
+            const data = await res.json();
+            el.status.textContent = `Queued idempotency=${data.idempotencyKey}`;
+            logLine(`Checkout queued: ${JSON.stringify(data)}`);
+        };
+
+        setInterval(() => {
+            if (state.countdown > 0) {
+                state.countdown--;
+                el.timer.textContent = String(state.countdown);
+                handleTimerVisuals();
+            }
+        }, 1000);
+
+        el.getToken.addEventListener("click", async () => {
+            try {
+                await issueToken();
+            } catch (error) {
+                logLine(error.message, "bad");
+            }
+        });
+
+        el.buyBtn.addEventListener("click", async () => {
+            try {
+                await buyNow();
+            } catch (error) {
+                logLine(error.message, "bad");
+            }
+        });
+
+        el.logoutBtn.addEventListener("click", () => {
+            state.token = "";
+            state.role = "user";
+            state.userId = "";
+            el.loginForm.classList.remove("hidden");
+            el.userInfo.classList.add("hidden");
+            el.adminPanel.style.display = "none";
+            el.buyBtn.disabled = true;
+            el.buyBtn.textContent = "BUY NOW (LOGIN REQ)";
+            el.status.textContent = "Logged out.";
+            logLine("Logged out.");
+        });
+
+        el.restockBtn.addEventListener("click", async () => {
+            try {
+                await restock();
+            } catch (error) {
+                logLine(error.message, "bad");
+            }
+        });
+
+        (async () => {
+            connectWebSocket();
+            try {
+                await pullInventory();
+                logLine("Inventory pulled");
+            } catch (error) {
+                logLine(error.message, "bad");
+            }
+        })();
+    </script>
+</body>
+
+</html>

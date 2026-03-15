@@ -1,0 +1,76 @@
+services:
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vaultdrop
+      POSTGRES_USER: vaultdrop
+      POSTGRES_PASSWORD: vaultdrop
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ../backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      REDIS_URL: redis://redis:6379
+      POSTGRES_URL: postgres://vaultdrop:vaultdrop@postgres:5432/vaultdrop
+      JWT_SECRET: vaultdrop-dev-secret
+      INVENTORY_BOOTSTRAP: '{"sku-vaultdrop":50}'
+      RATE_LIMIT_PER_MINUTE: 5
+      CHECKOUT_LOCK_TTL_SECONDS: 120
+    depends_on:
+      - redis
+      - postgres
+
+  worker:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    command: ["npm", "run", "worker"]
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+      POSTGRES_URL: postgres://vaultdrop:vaultdrop@postgres:5432/vaultdrop
+      JWT_SECRET: vaultdrop-dev-secret
+    depends_on:
+      - redis
+      - postgres
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - api
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    depends_on:
+      - api
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+volumes:
+  pg_data:
