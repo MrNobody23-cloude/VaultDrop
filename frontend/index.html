@@ -228,8 +228,38 @@
     </div>
 
     <script>
-        const apiBase = `${location.protocol}//${location.hostname}:8080`;
-        const wsBase = `${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:8080/ws`;
+        let apiBase = `${location.protocol}//${location.hostname}:8080`;
+        let wsBase = `${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:8080/ws`;
+
+        const loadConfig = async () => {
+            try {
+                const response = await fetch('.env');
+                if (!response.ok) return;
+
+                const text = await response.text();
+                const lines = text.split('\n');
+                const env = {};
+
+                lines.forEach(line => {
+                    const parts = line.split('=');
+                    if (parts.length >= 2) {
+                        const key = parts[0].trim();
+                        const value = parts.slice(1).join('=').trim();
+                        env[key] = value;
+                    }
+                });
+
+                if (env.BACKEND_API_URL) {
+                    apiBase = env.BACKEND_API_URL.replace(/\/$/, "");
+                    const wsProtocol = apiBase.startsWith("https") ? "wss" : "ws";
+                    const wsUrl = new URL(apiBase);
+                    wsBase = `${wsProtocol}://${wsUrl.host}/ws`;
+                    console.log(`Config loaded from .env: apiBase=${apiBase}, wsBase=${wsBase}`);
+                }
+            } catch (err) {
+                console.warn("Failed to load .env, using defaults:", err);
+            }
+        };
 
         const state = {
             token: "",
@@ -508,6 +538,7 @@
         });
 
         (async () => {
+            await loadConfig();
             connectWebSocket();
             try {
                 await pullInventory();
